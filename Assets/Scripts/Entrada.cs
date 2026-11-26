@@ -68,6 +68,18 @@ public static class Entrada
 #endif
     }
 
+    // Barra espaciadora (botón "Jump" del Input Manager) presionada en este frame.
+    public static bool Saltar()
+    {
+#if ENABLE_LEGACY_INPUT_MANAGER
+        return Input.GetButtonDown("Jump");
+#elif ENABLE_INPUT_SYSTEM
+        return Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame;
+#else
+        return false;
+#endif
+    }
+
     // Tecla Escape presionada en este frame.
     public static bool Escape()
     {

@@ -1,7 +1,7 @@
 using UnityEngine;
 
 // Mueve al jugador con WASD (o flechas) según hacia dónde mira la cámara,
-// usando un CharacterController y aplicando gravedad.
+// usando un CharacterController, con gravedad y salto con la barra espaciadora.
 [RequireComponent(typeof(CharacterController))]
 public class PlayerMovimiento : MonoBehaviour
 {
@@ -16,6 +16,9 @@ public class PlayerMovimiento : MonoBehaviour
     [Header("Gravedad")]
     [SerializeField] private float GravedadDelJugador = -9.81f;
 
+    [Header("Salto")]
+    [SerializeField] private float alturaSalto = 1.2f; // Altura máxima del salto, en metros
+
     private Vector3 velocidadVertical;
 
     private void Awake()
@@ -29,13 +32,16 @@ public class PlayerMovimiento : MonoBehaviour
 
     private void Update()
     {
-        MoverJugadorEnPlano();
-        AplicarGravedad();
+        Vector3 desplazamientoXZ = MoverJugadorEnPlano();
+        AplicarGravedadYSalto();
+
+        // Un solo Move por frame: así el CharacterController detecta bien si está tocando el suelo
+        controlador.Move(desplazamientoXZ + velocidadVertical * Time.deltaTime);
     }
 
-    private void MoverJugadorEnPlano()
+    private Vector3 MoverJugadorEnPlano()
     {
-        if (camara == null) return;
+        if (camara == null) return Vector3.zero;
 
         // Capturamos las teclas (WASD y flechas): valores -1, 0 o 1
         float valorHorizontal = Entrada.Horizontal();
@@ -61,18 +67,27 @@ public class PlayerMovimiento : MonoBehaviour
             direccionPlano.Normalize();
 
         // Multiplicamos por Time.deltaTime para que la velocidad dependa del tiempo y no de los FPS
-        Vector3 desplazamientoXZ = direccionPlano * (velocidadMovimiento * Time.deltaTime);
-        controlador.Move(desplazamientoXZ);
+        return direccionPlano * (velocidadMovimiento * Time.deltaTime);
     }
 
-    private void AplicarGravedad()
+    private void AplicarGravedadYSalto()
     {
-        // Si está en el suelo, dejamos una pequeña fuerza hacia abajo para que no se acumule la caída
-        if (controlador.isGrounded && velocidadVertical.y < 0f)
-            velocidadVertical.y = -2f;
+        if (controlador.isGrounded)
+        {
+            // En el suelo dejamos una pequeña fuerza hacia abajo para que no se acumule la caída
+            if (velocidadVertical.y < 0f)
+                velocidadVertical.y = -2f;
 
-        // Aplicamos la gravedad y movemos al jugador hacia abajo
+            // Salto: velocidad inicial necesaria para llegar a alturaSalto (v = raíz de 2 * altura * gravedad)
+            if (Entrada.Saltar())
+                velocidadVertical.y = Mathf.Sqrt(alturaSalto * -2f * GravedadDelJugador);
+        }
+
+        // Si choca con algo por arriba mientras sube, empieza a caer
+        if ((controlador.collisionFlags & CollisionFlags.Above) != 0 && velocidadVertical.y > 0f)
+            velocidadVertical.y = 0f;
+
+        // La gravedad actúa siempre
         velocidadVertical.y += GravedadDelJugador * Time.deltaTime;
-        controlador.Move(velocidadVertical * Time.deltaTime);
     }
 }
